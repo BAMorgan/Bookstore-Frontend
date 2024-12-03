@@ -49,8 +49,9 @@ export default function MessagesList() {
   //const handlePriorityClick = (event: React.MouseEvent<HTMLElement>, newPriority: number) => setPriority(newPriority ?? 0);
   function sortByISBN(isbn13: number)  {
     Books.filter((Book) => Book.isbn13 == isbn13)
+    //(Book) => Book.isbn13 == isbn13
   }
-
+  
   const booksAsComponents = Books
     .filter((Book) => Book.isbn13 != null)
     .map((Book, index, Books) => (
