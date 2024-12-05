@@ -4,7 +4,8 @@ import * as React from 'react';
 import Avatar from '@mui/material/Avatar';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
-import EmailIcon from '@mui/icons-material/Email';
+import TextField from '@mui/material/TextField';
+import SearchIcon from '@mui/icons-material/Search';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 
 import Typography from '@mui/material/Typography';
@@ -14,7 +15,6 @@ import { Divider, List } from '@mui/material';
 
 // project import
 import axios from 'utils/axios';
-import PrioritySelector from 'components/PrioritySelector';
 import { BookListItem, NoBooks } from 'components/MessageListItem';
 import { IBook } from 'types/book';
 
@@ -22,15 +22,13 @@ const defaultTheme = createTheme();
 
 export default function MessagesList() {
   const [Books, setBooks] = React.useState<IBook[]>([]);
-  //const [priority, setPriority] = React.useState(0);
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   React.useEffect(() => {
     axios
-      //.get('c/message/offset?limit=50&offset=0')
       .get('closed/books/all')
       .then((response) => {
         setBooks(response.data );
-        //console.dir(response.data);
         console.dir(response)
       })
       .catch((error) => console.error(error));
@@ -41,19 +39,21 @@ export default function MessagesList() {
       .delete('/closed/books/isbn/' + isbn13)
       .then((response) => {
         response.status == 200 && setBooks(Books.filter((Book) => Book.isbn13 !== isbn13));
-        // console.dir(response.status);
       })
       .catch((error) => console.error(error));
   };
 
-  //const handlePriorityClick = (event: React.MouseEvent<HTMLElement>, newPriority: number) => setPriority(newPriority ?? 0);
-  function sortByISBN(isbn13: number)  {
-    Books.filter((Book) => Book.isbn13 == isbn13)
-    //(Book) => Book.isbn13 == isbn13
-  }
+  const filteredBooks = Books.filter((book) => 
+    book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    book.authors.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   
-  const booksAsComponents = Books
-    .filter((Book) => Book.isbn13 != null)
+  const booksAsComponents = filteredBooks
+    .filter((Book) => Book.isbn13 != null && 
+      (searchQuery === '' || 
+       Book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+       Book.authors.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
     .map((Book, index, Books) => (
     <React.Fragment key={'Book list item: ' + index}>
     <Box display="flex" alignItems="center" p={2}>
@@ -94,6 +94,22 @@ export default function MessagesList() {
           <Typography component="h1" variant="h5">
             View books in the library system
           </Typography>
+
+          <Box sx={{ 
+            width: '100%', 
+            display: 'flex', 
+            justifyContent: 'flex-end',
+            mt: 2, 
+            mb: 2 
+          }}>
+            <TextField
+              placeholder="Search books..."
+              variant="outlined"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1 }} /> }}
+            />
+          </Box>
 
           <Box sx={{ mt: 1 }}>
             <List>{booksAsComponents.length ? booksAsComponents : <NoBooks/>}</List>
