@@ -4,8 +4,7 @@ import * as React from 'react';
 import Avatar from '@mui/material/Avatar';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
-import SearchIcon from '@mui/icons-material/Search';
+import EmailIcon from '@mui/icons-material/Email';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 
 import Typography from '@mui/material/Typography';
@@ -15,20 +14,28 @@ import { Divider, List } from '@mui/material';
 
 // project import
 import axios from 'utils/axios';
+import PrioritySelector from 'components/PrioritySelector';
 import { BookListItem, NoBooks } from 'components/MessageListItem';
 import { IBook } from 'types/book';
+
+import TextField from '@mui/material/TextField'; // added search bar import
 
 const defaultTheme = createTheme();
 
 export default function MessagesList() {
   const [Books, setBooks] = React.useState<IBook[]>([]);
-  const [searchQuery, setSearchQuery] = React.useState('');
+  //const [priority, setPriority] = React.useState(0);
+
+  // Added state for search term
+  const [searchTerm, setSearchTerm] = React.useState('');
 
   React.useEffect(() => {
     axios
+      //.get('c/message/offset?limit=50&offset=0')
       .get('closed/books/all')
       .then((response) => {
         setBooks(response.data );
+        //console.dir(response.data);
         console.dir(response)
       })
       .catch((error) => console.error(error));
@@ -39,22 +46,26 @@ export default function MessagesList() {
       .delete('/closed/books/isbn/' + isbn13)
       .then((response) => {
         response.status == 200 && setBooks(Books.filter((Book) => Book.isbn13 !== isbn13));
+        // console.dir(response.status);
       })
       .catch((error) => console.error(error));
   };
 
-  const filteredBooks = Books.filter((book) => 
-    book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    book.authors.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
-  const booksAsComponents = filteredBooks
-    .filter((Book) => Book.isbn13 != null && 
-      (searchQuery === '' || 
-       Book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       Book.authors.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
-    .map((Book, index, Books) => (
+  //const handlePriorityClick = (event: React.MouseEvent<HTMLElement>, newPriority: number) => setPriority(newPriority ?? 0);
+  function sortByISBN(isbn13: number)  {
+    Books.filter((Book) => Book.isbn13 == isbn13)
+    //(Book) => Book.isbn13 == isbn13
+  }
+
+  // Filter the books by searchTerm before mapping
+  const filteredBooks = Books
+    .filter((Book) => Book.isbn13 != null && (
+      searchTerm.trim() === '' ||
+      (Book.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        Book.authors?.toLowerCase().includes(searchTerm.toLowerCase()))
+    ));
+
+  const booksAsComponents = filteredBooks.map((Book, index, Books) => (
     <React.Fragment key={'Book list item: ' + index}>
     <Box display="flex" alignItems="center" p={2}>
       {Book.image_small_url && (
@@ -76,8 +87,20 @@ export default function MessagesList() {
     {index < Books.length - 1 && <Divider variant="middle" component="li" />}
   </React.Fragment>
   ));
+
   return (
     <ThemeProvider theme={defaultTheme}>
+      {/* Added a search bar at the top right with onChange handler */}
+      <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
+        <TextField
+          placeholder="Search..."
+          variant="outlined"
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </Box>
+
       <Container component="main" maxWidth="md">
         <CssBaseline />
         <Box
@@ -94,22 +117,6 @@ export default function MessagesList() {
           <Typography component="h1" variant="h5">
             View books in the library system
           </Typography>
-
-          <Box sx={{ 
-            width: '100%', 
-            display: 'flex', 
-            justifyContent: 'flex-end',
-            mt: 2, 
-            mb: 2 
-          }}>
-            <TextField
-              placeholder="Search books..."
-              variant="outlined"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1 }} /> }}
-            />
-          </Box>
 
           <Box sx={{ mt: 1 }}>
             <List>{booksAsComponents.length ? booksAsComponents : <NoBooks/>}</List>
