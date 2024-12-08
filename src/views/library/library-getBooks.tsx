@@ -5,13 +5,10 @@ import Avatar from '@mui/material/Avatar';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
-
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { Divider, List } from '@mui/material';
-
-// project import
+import { Divider, List, TextField, Button, Select, MenuItem, InputLabel, FormControl} from '@mui/material';
 import axios from 'utils/axios';
 import { BookListItem, NoBooks } from 'components/MessageListItem';
 import { IBook } from 'types/book';
@@ -19,58 +16,108 @@ import BookModal from 'components/ModalSingleBook';
 
 const defaultTheme = createTheme();
 
-export default function LibraryList() {
-  console.log("LibraryList component rendered");
+type SearchFilter = 'author' | 'year' | 'isbn' | 'title';
+
+export default function MessagesList() {
   const [Books, setBooks] = React.useState<IBook[]>([]);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchFilter, setSearchFilter] = React.useState<SearchFilter>('author');
+  const [page, setPage] = React.useState(1);
+  const [hasMoreBooks, setHasMoreBooks] = React.useState(true);
   const [singleBook, setSingleBook] = React.useState<IBook | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
 
+  // Reset books and pagination when search criteria change
   React.useEffect(() => {
-    console.log("LibraryList useEffect called");
-    axios
-      .get('closed/books/all')
-      .then((response) => {
-        console.log("Fetched books:", response.data);
-        setBooks(response.data);
-        console.dir(response);
-      })
-      .catch((error) => console.error(error));
-  }, []);
+    setBooks([]);
+    setPage(1);
+    setHasMoreBooks(true);
+  }, [searchQuery, searchFilter]);
+
+  React.useEffect(() => {
+    const fetchBooks = async () => {
+      try {
+        if (!searchQuery) {
+          // If no search query, fetch paginated results
+          const response = await axios.get(`closed/books/all?page=${page}&limit=10`);
+          const newBooks = response.data;
+
+          if (newBooks.length > 0) {
+            // Append new batch of books
+            setBooks((prevBooks) => [...prevBooks, ...newBooks]);
+          } else {
+            // No more books to load
+            setHasMoreBooks(false);
+          }
+        } else {
+          
+          let endpoint: string;
+
+          switch(searchFilter) {
+            case 'author':
+              endpoint = `closed/books/author/${searchQuery}`;
+              break;
+            case 'year':
+              endpoint = `closed/books/year/${searchQuery}`;
+              break;
+            case 'isbn':
+              endpoint = `closed/books/${searchQuery}`;
+              break;
+            case 'title':
+              endpoint = `closed/books/title/${searchQuery}`;
+              break;
+            default:
+              endpoint = `closed/books/author/${searchQuery}`;
+          }
+
+          const response = await axios.get(endpoint);
+          const data = response.data;
+
+          setBooks(Array.isArray(data) ? data : [data]);
+          // No pagination in search mode, so mark hasMoreBooks as false
+          setHasMoreBooks(false);
+        }
+      } catch (error) {
+        console.error(error);
+        setBooks([]);
+      }
+    };
+    fetchBooks();
+  }, [searchQuery, searchFilter, page]);
 
   const handleDelete = (isbn13: number) => {
     axios
-      .delete('/closed/books/isbn/' + isbn13)
-      .then((response) => {
-        response.status == 200 && setBooks(Books.filter((Book) => Book.isbn13 !== isbn13));
-        // console.dir(response.status);
-      })
-      .catch((error) => console.error(error));
-  };
-
-  const handleAddRating = (id: number, rating: number) => {
-    if (rating < 1 || rating > 5) {
-      console.error('Invalid rating. Please provide a rating between 1 and 5.');
-      return;
-    }
-  
-    axios
-      .put('/closed/books/rating', { id, rating })
+      .delete(`/closed/books/isbn/${isbn13}`)
       .then((response) => {
         if (response.status === 200) {
-          console.log('Rating added successfully:', response.data);
-  
-          // Update the book list with the new rating data
-          const updatedBooks = Books.map((book) =>
-            book.id === id ? { ...book, ...response.data[0] } : book
-          );
-          setBooks(updatedBooks);
-  
-          console.log('Updated book list:', updatedBooks);
+          setBooks((prevBooks) => prevBooks.filter((Book) => Book.isbn13 !== isbn13));
         }
       })
       .catch((error) => console.error(error));
   };
-
+  const handleAddRating = (id: number, rating: number) => {
+      if (rating < 1 || rating > 5) {
+        console.error('Invalid rating. Please provide a rating between 1 and 5.');
+        return;
+      }
+    
+      axios
+        .put('/closed/books/rating', { id, rating })
+        .then((response) => {
+          if (response.status === 200) {
+            console.log('Rating added successfully:', response.data);
+    
+            // Update the book list with the new rating data
+            const updatedBooks = Books.map((book) =>
+              book.id === id ? { ...book, ...response.data[0] } : book
+            );
+            setBooks(updatedBooks);
+    
+            console.log('Updated book list:', updatedBooks);
+          }
+        })
+        .catch((error) => console.error(error));
+    };
   const handleDeleteRating = (bookId: number, rating: number) => {
     axios
       .delete('/closed/books/rating', {
@@ -140,10 +187,48 @@ export default function LibraryList() {
         <CssBaseline />
         <Box
           sx={{
+            position: 'fixed',
+            top: 70,
+            right: 25,
+            zIndex: 999,
+            backgroundColor: (theme) => theme.palette.background.default,
+            py: 2,
+            display: 'flex',
+            gap: 1,
+          }}
+        >
+            <TextField
+              variant="outlined"
+              placeholder="Search books..."
+              size="small"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{
+                flex: 1,
+                maxWidth: 400,
+              }}
+            />
+          <FormControl variant='outlined' size='small' sx={{minWidth: 120}}>
+            <InputLabel id = 'search-filter-label'> Filter </InputLabel>
+            <Select 
+              labelId='search-filter-label'
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value as SearchFilter)}
+              label = 'Filter'
+              >
+                <MenuItem value= 'author'> Author </MenuItem>
+                <MenuItem value= 'year'> Year </MenuItem>
+                <MenuItem value= 'isbn'> ISBN </MenuItem>
+                <MenuItem value= 'title'> Title </MenuItem>
+              </Select>
+          </FormControl>
+        </Box>
+        <Box
+          sx={{
             marginTop: 8,
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center'
+            alignItems: 'center',
           }}
         >
           <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
