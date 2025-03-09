@@ -1,1 +1,1 @@
-This is starter template for [Learn Next.js](https://nextjs.org/learn).
+This is the frontend code for a theoretical bookstore. 
